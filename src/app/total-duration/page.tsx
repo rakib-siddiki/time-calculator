@@ -5,8 +5,8 @@ export const metadata = {
   description: "Calculate the total sum of multiple time durations.",
 };
 
-const GetSumOfTotalTimePage = () => {
+const TotalDurationPage = () => {
   return <TimeDurationSumContainer />;
 };
 
-export default GetSumOfTotalTimePage;
+export default TotalDurationPage;
