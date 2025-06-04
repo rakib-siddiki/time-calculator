@@ -3,7 +3,7 @@ import { Calendar } from "lucide-react";
 
 const TimeCalculatorHeader = () => {
   return (
-    <div className="text-center space-y-2 pt-8">
+    <div className="text-center space-y-2 pt-5">
       <div className="flex items-center justify-center gap-2 mb-4">
         <Calendar className="h-8 w-8 text-blue-600" />
         <h1 className="text-3xl font-bold text-gray-900">

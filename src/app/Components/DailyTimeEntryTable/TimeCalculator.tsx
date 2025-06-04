@@ -21,11 +21,12 @@ const TimeCalculator = () => {
     getWorkingDays,
     avgTime,
     DAYS,
+    formattedTotalUntrackedTime,
   } = useTimeCalculator();
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <section className="min-h-[calc(100dvh-60px)] bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+      <div className="mx-auto space-y-6">
         <TimeCalculatorHeader />
 
         <div className="grid xl:grid-cols-3 gap-6">
@@ -37,6 +38,7 @@ const TimeCalculator = () => {
               getDayRowTime={getDayRowTime}
               loadSampleData={loadSampleData}
               resetAllTimes={resetAllTimes}
+              formattedTotalUntrackedTime={formattedTotalUntrackedTime}
               totalTime={totalTime}
             />
           </div>

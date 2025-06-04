@@ -1,9 +1,11 @@
+"use client";
 import { useState, useEffect } from "react";
 
 export type TimeInput = {
   hours: number;
   minutes: number;
   seconds: number;
+  untracked: string;
 };
 
 export type DayOfWeek =
@@ -15,7 +17,7 @@ export type DayOfWeek =
   | "saturday"
   | "sunday";
 
-const DAYS: { id: DayOfWeek; label: string; abbr: string }[] = [
+export const DAYS: { id: DayOfWeek; label: string; abbr: string }[] = [
   { id: "monday", label: "Monday", abbr: "Mon" },
   { id: "tuesday", label: "Tuesday", abbr: "Tue" },
   { id: "wednesday", label: "Wednesday", abbr: "Wed" },
@@ -24,35 +26,106 @@ const DAYS: { id: DayOfWeek; label: string; abbr: string }[] = [
   { id: "saturday", label: "Saturday", abbr: "Sat" },
   { id: "sunday", label: "Sunday", abbr: "Sun" },
 ];
-const initialDates = {
-  monday: { hours: 0, minutes: 0, seconds: 0 },
-  tuesday: { hours: 0, minutes: 0, seconds: 0 },
-  wednesday: { hours: 0, minutes: 0, seconds: 0 },
-  thursday: { hours: 0, minutes: 0, seconds: 0 },
-  friday: { hours: 0, minutes: 0, seconds: 0 },
-  saturday: { hours: 0, minutes: 0, seconds: 0 },
-  sunday: { hours: 0, minutes: 0, seconds: 0 },
+const initialTime = {
+  monday: { hours: 0, minutes: 0, seconds: 0, untracked: "" },
+  tuesday: { hours: 0, minutes: 0, seconds: 0, untracked: "" },
+  wednesday: { hours: 0, minutes: 0, seconds: 0, untracked: "" },
+  thursday: { hours: 0, minutes: 0, seconds: 0, untracked: "" },
+  friday: { hours: 0, minutes: 0, seconds: 0, untracked: "" },
+  saturday: { hours: 0, minutes: 0, seconds: 0, untracked: "" },
+  sunday: { hours: 0, minutes: 0, seconds: 0, untracked: "" },
 };
 export const useTimeCalculator = () => {
   const [times, setTimes] = useState<Record<DayOfWeek, TimeInput>>(
-    () => initialDates
+    () => initialTime
   );
 
   const [totalTime, setTotalTime] = useState<TimeInput>({
     hours: 0,
     minutes: 0,
     seconds: 0,
+    untracked: "",
   });
   const [copied, setCopied] = useState(false);
   const [autoCalculate, setAutoCalculate] = useState(true);
+  const [totalUntrackedSeconds, setTotalUntrackedSeconds] = useState(0);
+
+  const parseTimeString = (timeString: string): number => {
+    console.log("🚀 > parseTimeString > timeString:", timeString);
+    if (!timeString.trim()) return 0;
+
+    // Handle hh:mm:ss, hh:mm, or mm format
+    const parts = timeString.split(":");
+    let totalSeconds = 0;
+
+    if (parts.length === 3) {
+      // hh:mm:ss
+      const hours = parseInt(parts[0], 10) || 0;
+      const minutes = parseInt(parts[1], 10) || 0;
+      const seconds = parseInt(parts[2], 10) || 0;
+      totalSeconds = hours * 3600 + minutes * 60 + seconds;
+    } else if (parts.length === 2) {
+      // hh:mm
+      const hours = parseInt(parts[0], 10) || 0;
+      const minutes = parseInt(parts[1], 10) || 0;
+      totalSeconds = hours * 3600 + minutes * 60;
+    } else if (parts.length === 1) {
+      // mm or h or s (if only digits)
+      const value = parseInt(parts[0], 10) || 0;
+      // Try to interpret as minutes first, then if not reasonable, hours
+      // Or if explicitly "Xs" or "Xm" or "Xh"
+      if (timeString.toLowerCase().endsWith("s")) {
+        totalSeconds = parseInt(timeString.slice(0, -1), 10);
+      } else if (timeString.toLowerCase().endsWith("m")) {
+        totalSeconds = parseInt(timeString.slice(0, -1), 10) * 60;
+      } else if (timeString.toLowerCase().endsWith("h")) {
+        totalSeconds = parseInt(timeString.slice(0, -1), 10) * 3600;
+      } else {
+        // Default to minutes if just a number
+        totalSeconds = value * 60;
+      }
+    }
+
+    // Handle 1h2m format
+    const hoursMatch = timeString.match(/(\d+)h/);
+    const minutesMatch = timeString.match(/(\d+)m/);
+    const secondsMatch = timeString.match(/(\d+)s/);
+
+    if (hoursMatch || minutesMatch || secondsMatch) {
+      const hours = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
+      const minutes = minutesMatch ? parseInt(minutesMatch[1], 10) : 0;
+      const seconds = secondsMatch ? parseInt(secondsMatch[1], 10) : 0;
+      totalSeconds = hours * 3600 + minutes * 60 + seconds;
+    }
+
+    return totalSeconds;
+  };
 
   const handleTimeChange = (
     day: DayOfWeek,
     field: keyof TimeInput,
-    value: number
+    value: number | string
   ) => {
+    console.log("🚀 > useTimeCalculator > value:", value);
+    let processedValue = value;
+
+    // If the field is 'untracked' and the value is a string, parse it
+    if (field === "untracked" && typeof value === "string") {
+      processedValue = parseTimeString(value);
+    }
+
+    // Ensure the value is a number for the rest of the function
+    const numValue =
+      typeof processedValue === "string"
+        ? parseFloat(processedValue) || 0
+        : processedValue;
+
     const clampedValue =
-      field === "hours" ? Math.max(0, value) : Math.max(0, Math.min(59, value));
+      field === "hours"
+        ? Math.max(0, numValue)
+        : field === "untracked"
+        ? String(value)
+        : Math.max(0, Math.min(59, numValue));
 
     setTimes((prev) => ({
       ...prev,
@@ -66,9 +139,13 @@ export const useTimeCalculator = () => {
 
   const calculateTotalTime = () => {
     let totalSeconds = 0;
+    let accumulatedUntrackedSeconds = 0;
 
     Object.values(times).forEach((time) => {
+      const untrackedSeconds = parseTimeString(time.untracked);
+      accumulatedUntrackedSeconds += untrackedSeconds;
       totalSeconds += time.hours * 3600 + time.minutes * 60 + time.seconds;
+      totalSeconds -= untrackedSeconds;
     });
 
     const hours = Math.floor(totalSeconds / 3600);
@@ -76,12 +153,14 @@ export const useTimeCalculator = () => {
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
 
-    setTotalTime({ hours, minutes, seconds });
+    setTotalTime({ hours, minutes, seconds, untracked: "" });
+    setTotalUntrackedSeconds(accumulatedUntrackedSeconds);
   };
 
   const resetAllTimes = () => {
-    setTimes(initialDates);
-    setTotalTime({ hours: 0, minutes: 0, seconds: 0 });
+    setTimes(initialTime);
+    setTotalTime({ hours: 0, minutes: 0, seconds: 0, untracked: "" });
+    setTotalUntrackedSeconds(0);
   };
 
   const copyTotal = async () => {
@@ -99,17 +178,16 @@ export const useTimeCalculator = () => {
 
   const loadSampleData = () => {
     setTimes({
-      monday: { hours: 8, minutes: 0, seconds: 0 },
-      tuesday: { hours: 8, minutes: 0, seconds: 0 },
-      wednesday: { hours: 8, minutes: 0, seconds: 0 },
-      thursday: { hours: 8, minutes: 0, seconds: 0 },
-      friday: { hours: 8, minutes: 0, seconds: 0 },
-      saturday: { hours: 8, minutes: 0, seconds: 0 },
-      sunday: { hours: 8, minutes: 0, seconds: 0 },
+      monday: { hours: 8, minutes: 0, seconds: 0, untracked: "" },
+      tuesday: { hours: 8, minutes: 0, seconds: 0, untracked: "" },
+      wednesday: { hours: 8, minutes: 0, seconds: 0, untracked: "" },
+      thursday: { hours: 8, minutes: 0, seconds: 0, untracked: "" },
+      friday: { hours: 8, minutes: 0, seconds: 0, untracked: "" },
+      saturday: { hours: 8, minutes: 0, seconds: 0, untracked: "" },
+      sunday: { hours: 8, minutes: 0, seconds: 0, untracked: "" },
     });
   };
 
-  // Auto-calculate when times change
   useEffect(() => {
     if (autoCalculate) {
       calculateTotalTime();
@@ -119,7 +197,9 @@ export const useTimeCalculator = () => {
 
   const getDayRowTime = (dayId: DayOfWeek) => {
     const time = times[dayId];
-    const totalSeconds = time.hours * 3600 + time.minutes * 60 + time.seconds;
+    const untrackedSeconds = parseTimeString(time.untracked);
+    let totalSeconds = time.hours * 3600 + time.minutes * 60 + time.seconds;
+    totalSeconds -= untrackedSeconds;
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -148,6 +228,21 @@ export const useTimeCalculator = () => {
     };
   };
 
+  const formatSecondsToHms = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const remainingSeconds = totalSeconds % 60;
+
+    let formattedString = "";
+    if (hours > 0) formattedString += `${hours}h `;
+    if (minutes > 0) formattedString += `${minutes}m `;
+    if (remainingSeconds > 0) formattedString += `${remainingSeconds}s`;
+
+    return formattedString.trim() || "0s";
+  };
+
+  const formattedTotalUntrackedTime = formatSecondsToHms(totalUntrackedSeconds);
+
   const avgTime = getAverageTime();
 
   return {
@@ -164,6 +259,8 @@ export const useTimeCalculator = () => {
     getWorkingDays,
     getAverageTime,
     avgTime,
-    DAYS, // Export DAYS for the component to use
+    DAYS,
+    totalUntrackedSeconds,
+    formattedTotalUntrackedTime,
   };
 };

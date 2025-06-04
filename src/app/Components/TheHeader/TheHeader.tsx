@@ -9,7 +9,7 @@ const TheHeader = () => {
             <Link href="/">Home</Link>
           </li>
           <li className="text-lg font-semibold hover:text-blue-600">
-            <Link href="/get-sum-of-total">Total Duration</Link>
+            <Link href="/total-duration">Total Duration</Link>
           </li>
         </ul>
       </nav>
